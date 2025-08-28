@@ -1,0 +1,15 @@
+[
+  {
+    "id": "parque-central",
+    "name": "Parque Central, Ciudad Vieja",
+    "coordinates": {
+      "lat": 14.560,
+      "lon": -90.767
+    },
+    "radius": 150,
+    "audio": {
+      "en": "output.mp3",
+      "es": "output.mp3"
+    }
+  }
+]
