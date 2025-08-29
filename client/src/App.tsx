@@ -1,15 +1,23 @@
+// client/src/App.tsx
 import { useState, useEffect } from 'react';
-
-type ConnectionStatus = 'Connecting' | 'Connected' | 'Disconnected';
-interface Poi {
-  id: string;
-  name: string;
-  audioUrl: string;
-}
+import { AdminPanel } from './AdminPanel';
+import { MainTab } from './MainTab';
+import { SettingsTab } from './SettingsTab';
+import { Poi, Language, ConnectionStatus } from './types';
+import { Home, Settings } from 'lucide-react';
 
 function App() {
   const [status, setStatus] = useState<ConnectionStatus>('Connecting');
+  const [activeTab, setActiveTab] = useState<'main' | 'settings'>('main');
+  
+  // Tour State
   const [currentPoi, setCurrentPoi] = useState<Poi | null>(null);
+  const [poiHistory, setPoiHistory] = useState<Poi[]>([]);
+  const [queuedPoi, setQueuedPoi] = useState<Poi | null>(null);
+  const [isReplaying, setIsReplaying] = useState(false);
+
+  // Settings State
+  const [language, setLanguage] = useState<Language>('en');
 
   useEffect(() => {
     let ws: WebSocket;
@@ -18,32 +26,26 @@ function App() {
       ws = new WebSocket('ws://localhost:3001');
       setStatus('Connecting');
 
-      ws.onopen = () => {
-        console.log('WebSocket connection established');
-        setStatus('Connected');
-      };
-
-      ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        console.log('Received message:', message);
-
-        if (message.type === 'POI_TRIGGER' && message.poi) {
-          const poi: Poi = message.poi;
-          setCurrentPoi(poi); // Update the UI with the new POI
-          const audio = new Audio(poi.audioUrl);
-          audio.play();
-        }
-      };
-
+      ws.onopen = () => setStatus('Connected');
       ws.onclose = () => {
-        console.log('WebSocket connection closed. Reconnecting...');
         setStatus('Disconnected');
         setTimeout(connect, 3000);
       };
+      ws.onerror = () => ws.close();
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        ws.close();
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'POI_TRIGGER' && message.poi) {
+          const newPoi: Poi = message.poi;
+          
+          // If we are busy replaying a previous POI, queue the new one.
+          if (isReplaying) {
+            setQueuedPoi(newPoi);
+          } else {
+            setCurrentPoi(newPoi);
+            setPoiHistory(prev => [...prev, newPoi]);
+          }
+        }
       };
     }
 
@@ -51,41 +53,81 @@ function App() {
 
     return () => {
       if (ws) {
-        ws.onclose = () => {};
+        ws.onclose = null;
         ws.close();
       }
     };
-  }, []);
+  }, [isReplaying]); // Re-run effect if isReplaying changes
 
-  const getStatusColor = () => {
-    switch (status) {
-      case 'Connected': return 'text-green-500';
-      case 'Disconnected': return 'text-red-500';
-      default: return 'text-yellow-500';
+  const handleReplayLast = () => {
+    if (poiHistory.length > 0) {
+      const lastPoi = poiHistory[poiHistory.length - 1];
+      setIsReplaying(true);
+      setCurrentPoi(lastPoi);
     }
   };
-  
+
+  const handleAudioEnded = () => {
+    // If a POI came in while we were replaying, play it now.
+    if (isReplaying) {
+      setIsReplaying(false);
+      if (queuedPoi) {
+        setCurrentPoi(queuedPoi);
+        setPoiHistory(prev => [...prev, queuedPoi]);
+        setQueuedPoi(null);
+      } else {
+        setCurrentPoi(null);
+      }
+    } else {
+      // Otherwise, just clear the current POI
+      setCurrentPoi(null);
+    }
+  };
+
   return (
-    <div className="bg-gray-800 text-white min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold">Guided Tour App</h1>
-        <p className={`mt-2 text-lg font-semibold ${getStatusColor()}`}>
-          Status: {status}
-        </p>
-        
-        <div className="mt-12 h-24">
-          {currentPoi ? (
-            <div>
-              <h2 className="text-2xl">Now Playing:</h2>
-              <p className="text-3xl font-bold text-cyan-400">{currentPoi.name}</p>
-            </div>
-          ) : (
-            <p className="text-xl italic text-gray-400">Waiting for next Point of Interest...</p>
-          )}
-        </div>
-      </div>
+    <div className="bg-slate-900 text-white min-h-screen flex flex-col">
+      <main className="flex-grow flex flex-col">
+        {activeTab === 'main' ? (
+          <MainTab 
+            currentPoi={currentPoi}
+            poiHistory={poiHistory}
+            language={language}
+            onReplayLast={handleReplayLast}
+            onAudioEnded={handleAudioEnded}
+          />
+        ) : (
+          <SettingsTab 
+            language={language}
+            onLanguageChange={setLanguage}
+            connectionStatus={status}
+          />
+        )}
+      </main>
+
+      {/* Tab Navigation */}
+      <footer className="w-full bg-slate-800/50 backdrop-blur-sm border-t border-slate-700">
+        <nav className="flex justify-around p-2">
+          <button 
+            onClick={() => setActiveTab('main')}
+            className={`flex flex-col items-center space-y-1 p-2 rounded-md ${activeTab === 'main' ? 'text-cyan-400' : 'text-slate-400'}`}
+          >
+            <Home size={28}/>
+            <span className="text-xs">Tour</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={`flex flex-col items-center space-y-1 p-2 rounded-md ${activeTab === 'settings' ? 'text-cyan-400' : 'text-slate-400'}`}
+          >
+            <Settings size={28}/>
+            <span className="text-xs">Settings</span>
+          </button>
+        </nav>
+      </footer>
+
+      {/* Admin panel is always visible for the driver */}
+      <AdminPanel />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

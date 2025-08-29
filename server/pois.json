@@ -1,15 +1,32 @@
 [
   {
-    "id": "parque-central",
-    "name": "Parque Central, Ciudad Vieja",
-    "coordinates": {
-      "lat": 14.560,
-      "lon": -90.767
-    },
+    "id": "poi-1",
+    "name": "Arco de Santa Catalina",
+    "coordinates": { "lat": 14.557, "lon": -90.733 },
     "radius": 150,
     "audio": {
-      "en": "output.mp3",
-      "es": "output.mp3"
-    }
+      "en": "poi-1-en.mp3",
+      "es": "poi-1-es.mp3"
+    },
+    "description": {
+      "en": "The iconic Santa Catalina Arch, a symbol of Antigua. Originally built in the 17th century to connect the Santa Catalina convent to a school.",
+      "es": "El icónico Arco de Santa Catalina, un símbolo de Antigua. Originalmente construido en el siglo XVII para conectar el convento de Santa Catalina con una escuela."
+    },
+    "image": "https://placehold.co/600x400/334155/E2E8F0?text=Santa+Catalina+Arch"
+  },
+  {
+    "id": "poi-2",
+    "name": "Parque Central",
+    "coordinates": { "lat": 14.555, "lon": -90.733 },
+    "radius": 150,
+    "audio": {
+      "en": "poi-2-en.mp3",
+      "es": "poi-2-es.mp3"
+    },
+    "description": {
+      "en": "The heart of Antigua, this central plaza is surrounded by colonial-era buildings, including the cathedral and the Captain General's Palace.",
+      "es": "El corazón de Antigua, esta plaza central está rodeada de edificios de la época colonial, incluida la catedral y el Palacio de los Capitanes Generales."
+    },
+    "image": "https://placehold.co/600x400/334155/E2E8F0?text=Parque+Central"
   }
 ]

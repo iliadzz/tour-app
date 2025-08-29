@@ -10,13 +10,18 @@ import { startTour, endTour, markPoiAsPlayed, isPoiPlayed, getTourState } from '
 
 // --- Type Definitions ---
 interface Coordinates { lat: number; lon: number; }
+type Language = 'en' | 'es';
+
 interface Poi {
   id: string;
   name: string;
   coordinates: Coordinates;
   radius: number; // in meters
-  audio: { [lang: string]: string };
+  audio: { [key in Language]: string };
+  description: { [key in Language]: string };
+  image: string;
 }
+
 
 dotenv.config();
 const app = express();
@@ -48,6 +53,7 @@ function broadcast(message: object) {
 function checkGeofences() {
   const { isTourActive } = getTourState();
   if (!isTourActive) {
+    // If no tour is active, do nothing.
     return;
   }
 
@@ -71,13 +77,18 @@ function checkGeofences() {
     if (triggeredPoi.id !== lastTriggeredPoiId && !isPoiPlayed(triggeredPoi.id)) {
       console.log(`>>> ENTERED GEOFENCE for ${triggeredPoi.name}`);
       lastTriggeredPoiId = triggeredPoi.id;
-      markPoiAsPlayed(triggeredPoi.id);
+      markPoiAsPlayed(triggeredPoi.id); // Use the service to mark as played
       broadcast({
         type: 'POI_TRIGGER',
         poi: {
           id: triggeredPoi.id,
           name: triggeredPoi.name,
-          audioUrl: `http://localhost:${PORT}/audio/${triggeredPoi.audio['en']}`
+          description: triggeredPoi.description,
+          image: triggeredPoi.image,
+          audio: {
+            en: `http://localhost:${PORT}/audio/${triggeredPoi.audio['en']}`,
+            es: `http://localhost:${PORT}/audio/${triggeredPoi.audio['es']}`
+          }
         }
       });
     }
@@ -87,7 +98,7 @@ function checkGeofences() {
       lastTriggeredPoiId = null; 
     }
   }
-} // <-- The function correctly ends here
+}
 
 // Haversine formula
 function calculateDistance(coords1: Coordinates, coords2: Coordinates): number {
@@ -118,6 +129,7 @@ app.get('/api/health', (req, res) => {
 
 // --- API Endpoints for Tour Management ---
 app.post('/api/tour/start', (req, res) => {
+  // In the future, you could pass a tourId from the request body
   startTour('tour1'); 
   res.json(getTourState());
 });
@@ -130,6 +142,7 @@ app.post('/api/tour/end', (req, res) => {
 app.get('/api/tour/state', (req, res) => {
   res.json(getTourState());
 });
+
 
 // --- Start the server ---
 server.listen(Number(PORT), '0.0.0.0', () => {
