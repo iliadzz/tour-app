@@ -2,31 +2,97 @@
   {
     "id": "poi-1",
     "name": "Arco de Santa Catalina",
-    "coordinates": { "lat": 14.557, "lon": -90.733 },
-    "radius": 150,
-    "audio": {
-      "en": "poi-1-en.mp3",
-      "es": "poi-1-es.mp3"
-    },
+    "coordinates": { "lat": 14.5582, "lon": -90.7337 },
+    "radius": 100,
+    "audio": { "en": "poi-1-en.mp3", "es": "poi-1-es.mp3" },
     "description": {
-      "en": "The iconic Santa Catalina Arch, a symbol of Antigua. Originally built in the 17th century to connect the Santa Catalina convent to a school.",
-      "es": "El icónico Arco de Santa Catalina, un símbolo de Antigua. Originalmente construido en el siglo XVII para conectar el convento de Santa Catalina con una escuela."
+      "en": "The iconic Santa Catalina Arch. Originally built in the 17th century to connect a convent to a school.",
+      "es": "El icónico Arco de Santa Catalina. Originalmente construido en el siglo XVII para conectar un convento con una escuela."
     },
-    "image": "https://placehold.co/600x400/334155/E2E8F0?text=Santa+Catalina+Arch"
+    "image": "poi-1.jpg"
   },
   {
     "id": "poi-2",
-    "name": "Parque Central",
-    "coordinates": { "lat": 14.555, "lon": -90.733 },
-    "radius": 150,
-    "audio": {
-      "en": "poi-2-en.mp3",
-      "es": "poi-2-es.mp3"
-    },
+    "name": "Iglesia de La Merced",
+    "coordinates": { "lat": 14.5595, "lon": -90.7330 },
+    "radius": 100,
+    "audio": { "en": "poi-2-en.mp3", "es": "poi-2-es.mp3" },
     "description": {
-      "en": "The heart of Antigua, this central plaza is surrounded by colonial-era buildings, including the cathedral and the Captain General's Palace.",
-      "es": "El corazón de Antigua, esta plaza central está rodeada de edificios de la época colonial, incluida la catedral y el Palacio de los Capitanes Generales."
+      "en": "A stunning example of Spanish Baroque architecture, this church is known for its intricate stucco work on its facade.",
+      "es": "Un impresionante ejemplo de arquitectura barroca española, esta iglesia es conocida por su intrincado trabajo de estuco en su fachada."
     },
-    "image": "https://placehold.co/600x400/334155/E2E8F0?text=Parque+Central"
+    "image": "poi-2.jpg"
+  },
+  {
+    "id": "poi-3",
+    "name": "Parque Central",
+    "coordinates": { "lat": 14.5555, "lon": -90.7335 },
+    "radius": 120,
+    "audio": { "en": "poi-3-en.mp3", "es": "poi-3-es.mp3" },
+    "description": {
+      "en": "The heart of Antigua, this central plaza is surrounded by colonial-era buildings, including the cathedral.",
+      "es": "El corazón de Antigua, esta plaza central está rodeada de edificios de la época colonial, incluida la catedral."
+    },
+    "image": "poi-3.jpg"
+  },
+  {
+    "id": "poi-4",
+    "name": "Catedral de San José",
+    "coordinates": { "lat": 14.5548, "lon": -90.7330 },
+    "radius": 100,
+    "audio": { "en": "poi-4-en.mp3", "es": "poi-4-es.mp3" },
+    "description": {
+      "en": "Though largely destroyed by earthquakes, the ruins of this grand cathedral offer a glimpse into the city's powerful past.",
+      "es": "Aunque en gran parte destruida por terremotos, las ruinas de esta gran catedral ofrecen una visión del poderoso pasado de la ciudad."
+    },
+    "image": "poi-4.jpg"
+  },
+  {
+    "id": "poi-5",
+    "name": "Tanque La Unión",
+    "coordinates": { "lat": 14.5532, "lon": -90.7350 },
+    "radius": 100,
+    "audio": { "en": "poi-5-en.mp3", "es": "poi-5-es.mp3" },
+    "description": {
+      "en": "A historic open-air laundry and public washbasin, still used by locals today.",
+      "es": "Un histórico lavadero al aire libre y lavadero público, todavía utilizado por los lugareños hoy en día."
+    },
+    "image": "poi-5.jpg"
+  },
+  {
+    "id": "poi-6",
+    "name": "Iglesia de San Francisco",
+    "coordinates": { "lat": 14.5518, "lon": -90.7355 },
+    "radius": 100,
+    "audio": { "en": "poi-6-en.mp3", "es": "poi-6-es.mp3" },
+    "description": {
+      "en": "This church and monastery complex is the final resting place of Saint Hermano Pedro, a revered figure in Guatemala.",
+      "es": "Este complejo de iglesia y monasterio es el lugar de descanso final de San Hermano Pedro, una figura venerada en Guatemala."
+    },
+    "image": "poi-6.jpg"
+  },
+  {
+    "id": "poi-7",
+    "name": "Convento de las Capuchinas",
+    "coordinates": { "lat": 14.5560, "lon": -90.7300 },
+    "radius": 100,
+    "audio": { "en": "poi-7-en.mp3", "es": "poi-7-es.mp3" },
+    "description": {
+      "en": "One of the best-preserved convents in Antigua, known for its unique circular tower of cells.",
+      "es": "Uno de los conventos mejor conservados de Antigua, conocido por su singular torre circular de celdas."
+    },
+    "image": "poi-7.jpg"
+  },
+  {
+    "id": "poi-8",
+    "name": "Cerro de la Cruz",
+    "coordinates": { "lat": 14.5645, "lon": -90.7295 },
+    "radius": 150,
+    "audio": { "en": "poi-8-en.mp3", "es": "poi-8-es.mp3" },
+    "description": {
+      "en": "A viewpoint offering panoramic views of the entire city and the surrounding volcanoes.",
+      "es": "Un mirador que ofrece vistas panorámicas de toda la ciudad y los volcanes circundantes."
+    },
+    "image": "poi-8.jpg"
   }
 ]

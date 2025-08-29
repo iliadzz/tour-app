@@ -1,28 +1,40 @@
 // server/src/gpsService.ts
+import fs from 'fs';
+import path from 'path';
 
-interface GpsPoint {
-  lat: number;
-  lon: number;
+interface Coordinates { lat: number; lon: number; }
+
+// Load the POIs directly to use their coordinates as the route
+const pois: { coordinates: Coordinates }[] = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '..', 'pois.json'), 'utf-8')
+);
+
+let currentPoiIndex = 0;
+
+/**
+ * This function now simply returns the coordinates of the current POI in our list.
+ * The simulation of "movement" is handled by advancing the index at a set interval.
+ */
+export function getCurrentLocation(): Coordinates {
+  // Make sure we have POIs to avoid errors
+  if (pois.length === 0) {
+    return { lat: 0, lon: 0 };
+  }
+  
+  const currentLocation = pois[currentPoiIndex].coordinates;
+  console.log(`📍 Currently at POI #${currentPoiIndex + 1}: ${JSON.stringify(currentLocation)}`);
+  return currentLocation;
 }
 
-// A simple, hardcoded route for our virtual bus
-const route: GpsPoint[] = [
-  { lat: 14.557, lon: -90.764 }, // Start Point
-  { lat: 14.558, lon: -90.765 },
-  { lat: 14.559, lon: -90.766 }, // Getting closer to the POI
-  { lat: 14.560, lon: -90.767 }, // We are at the POI
-  { lat: 14.561, lon: -90.768 }, // Moving away
-  { lat: 14.562, lon: -90.769 },
-];
-
-let currentIndex = 0;
-
-// This function simulates the bus moving to the next point on the route
-export function getCurrentLocation(): GpsPoint {
-  const location = route[currentIndex];
-
-  // Move to the next point, or loop back to the start
-  currentIndex = (currentIndex + 1) % route.length;
-
-  return location;
+/**
+ * Advances the simulation to the next Point of Interest in the list.
+ * This function will be called by a setInterval in the main index.ts file.
+ */
+function advanceToNextPoi() {
+  currentPoiIndex = (currentPoiIndex + 1) % pois.length; // Loop back to the start
+  console.log(`\n⏭️  Advancing to next POI... (#${currentPoiIndex + 1})`);
 }
+
+// Set an interval to automatically advance to the next POI every 2 minutes.
+// 2 * 60 * 1000 = 120000 milliseconds
+setInterval(advanceToNextPoi, 120000);

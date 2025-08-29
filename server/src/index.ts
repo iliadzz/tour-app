@@ -19,9 +19,8 @@ interface Poi {
   radius: number; // in meters
   audio: { [key in Language]: string };
   description: { [key in Language]: string };
-  image: string;
+  image: string; // Now just the filename, e.g., "poi-1.jpg"
 }
-
 
 dotenv.config();
 const app = express();
@@ -31,7 +30,6 @@ const wss = new WebSocketServer({ server });
 
 // --- Load POI Data ---
 const pois: Poi[] = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'pois.json'), 'utf-8'));
-let lastTriggeredPoiId: string | null = null;
 let lastLocation: Coordinates | null = null;
 
 wss.on('connection', (ws) => {
@@ -49,60 +47,48 @@ function broadcast(message: object) {
   });
 }
 
-// --- Geofence Logic ---
+// --- Geofence Logic (Simplified for Jump Simulation) ---
 function checkGeofences() {
   const { isTourActive } = getTourState();
-  if (!isTourActive) {
-    // If no tour is active, do nothing.
-    return;
-  }
+  if (!isTourActive) return;
 
   const currentLocation = getCurrentLocation();
   console.log(`\nChecking location: Lat ${currentLocation.lat}, Lon ${currentLocation.lon}`);
   lastLocation = currentLocation;
   
-  let triggeredPoi: Poi | null = null;
-
   for (const poi of pois) {
     const distance = calculateDistance(currentLocation, poi.coordinates);
     console.log(`- Distance to ${poi.name}: ${distance.toFixed(0)} meters`);
 
-    if (distance <= poi.radius) {
-      triggeredPoi = poi;
-      break; 
-    }
-  }
+    // If we are inside a POI's radius AND it has not been played yet on this tour...
+    if (distance <= poi.radius && !isPoiPlayed(poi.id)) {
+      console.log(`>>> TRIGGERED GEOFENCE for ${poi.name}`);
+      markPoiAsPlayed(poi.id); // Mark it as played for this tour session
 
-  if (triggeredPoi) {
-    if (triggeredPoi.id !== lastTriggeredPoiId && !isPoiPlayed(triggeredPoi.id)) {
-      console.log(`>>> ENTERED GEOFENCE for ${triggeredPoi.name}`);
-      lastTriggeredPoiId = triggeredPoi.id;
-      markPoiAsPlayed(triggeredPoi.id); // Use the service to mark as played
       broadcast({
         type: 'POI_TRIGGER',
         poi: {
-          id: triggeredPoi.id,
-          name: triggeredPoi.name,
-          description: triggeredPoi.description,
-          image: triggeredPoi.image,
+          id: poi.id,
+          name: poi.name,
+          description: poi.description,
+          // Construct the full, absolute URLs for media files
+          image: `http://localhost:${PORT}/images/${poi.image}`,
           audio: {
-            en: `http://localhost:${PORT}/audio/${triggeredPoi.audio['en']}`,
-            es: `http://localhost:${PORT}/audio/${triggeredPoi.audio['es']}`
+            en: `http://localhost:${PORT}/audio/${poi.audio['en']}`,
+            es: `http://localhost:${PORT}/audio/${poi.audio['es']}`
           }
         }
       });
-    }
-  } else {
-    if (lastTriggeredPoiId !== null) {
-      console.log(`<<< EXITED GEOFENCE`);
-      lastTriggeredPoiId = null; 
+      
+      // Since we found and triggered a POI, we can stop checking for this interval.
+      return; 
     }
   }
 }
 
-// Haversine formula
+// Haversine formula for distance calculation
 function calculateDistance(coords1: Coordinates, coords2: Coordinates): number {
-    const R = 6371e3; // meters
+    const R = 6371e3; // Earth's radius in meters
     const φ1 = coords1.lat * Math.PI/180;
     const φ2 = coords2.lat * Math.PI/180;
     const Δφ = (coords2.lat-coords1.lat) * Math.PI/180;
@@ -115,13 +101,19 @@ function calculateDistance(coords1: Coordinates, coords2: Coordinates): number {
     return R * c;
 }
 
-// --- Start the GPS simulation loop ---
-setInterval(checkGeofences, 5000);
+// --- Start the GPS check loop ---
+setInterval(checkGeofences, 5000); // Check every 5 seconds
 
 // --- Express Setup ---
 app.use(cors());
 app.use(express.json());
+
+// --- Static Asset Serving ---
+// Serve audio files from the /audio directory
 app.use('/audio', express.static(path.join(__dirname, '..', 'audio')));
+// Serve image files from the /public/images directory
+app.use('/images', express.static(path.join(__dirname, '..', 'public', 'images')));
+
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', clients: wss.clients.size, lastLocation });
@@ -129,8 +121,9 @@ app.get('/api/health', (req, res) => {
 
 // --- API Endpoints for Tour Management ---
 app.post('/api/tour/start', (req, res) => {
-  // In the future, you could pass a tourId from the request body
   startTour('tour1'); 
+  // Immediately run a check after starting so the first POI triggers instantly
+  checkGeofences(); 
   res.json(getTourState());
 });
 
@@ -143,8 +136,7 @@ app.get('/api/tour/state', (req, res) => {
   res.json(getTourState());
 });
 
-
 // --- Start the server ---
 server.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`Server is running on http://0.0.0.0:${PORT}`);
+  console.log(`🚀 Server is running on http://0.0.0.0:${PORT}`);
 });
