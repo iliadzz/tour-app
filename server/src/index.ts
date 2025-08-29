@@ -3,9 +3,10 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import http from 'http';
-import { WebSocketServer, WebSocket } from 'ws'; // Import WebSocket type
+import { WebSocketServer, WebSocket } from 'ws';
 import fs from 'fs';
 import { getCurrentLocation } from './gpsService';
+import { startTour, endTour, markPoiAsPlayed, isPoiPlayed, getTourState } from './tourService';
 
 // --- Type Definitions ---
 interface Coordinates { lat: number; lon: number; }
@@ -27,7 +28,6 @@ const wss = new WebSocketServer({ server });
 const pois: Poi[] = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'pois.json'), 'utf-8'));
 let lastTriggeredPoiId: string | null = null;
 let lastLocation: Coordinates | null = null;
-const playedPoiIds = new Set<string>(); // Keeps track of all POIs played in this session
 
 wss.on('connection', (ws) => {
   console.log('✅ Client connected to WebSocket');
@@ -38,7 +38,6 @@ function broadcast(message: object) {
   const messageString = JSON.stringify(message);
   console.log(`Broadcasting message: ${messageString}`);
   wss.clients.forEach((client) => {
-    // Check if the client is a valid WebSocket and is open
     if (client instanceof WebSocket && client.readyState === WebSocket.OPEN) {
       client.send(messageString);
     }
@@ -47,6 +46,11 @@ function broadcast(message: object) {
 
 // --- Geofence Logic ---
 function checkGeofences() {
+  const { isTourActive } = getTourState();
+  if (!isTourActive) {
+    return;
+  }
+
   const currentLocation = getCurrentLocation();
   console.log(`\nChecking location: Lat ${currentLocation.lat}, Lon ${currentLocation.lon}`);
   lastLocation = currentLocation;
@@ -63,27 +67,27 @@ function checkGeofences() {
     }
   }
 
-// Modify the "if" statement to look like this
-if (triggeredPoi.id !== lastTriggeredPoiId && !playedPoiIds.has(triggeredPoi.id)) {
-  console.log(`>>> ENTERED GEOFENCE for ${triggeredPoi.name}`);
-  lastTriggeredPoiId = triggeredPoi.id;
-  playedPoiIds.add(triggeredPoi.id); // Add the ID to our "played" list
-  broadcast({
-    type: 'POI_TRIGGER',
-    poi: {
-      id: triggeredPoi.id,
-      name: triggeredPoi.name,
-      audioUrl: `http://localhost:${PORT}/audio/${triggeredPoi.audio['en']}`
+  if (triggeredPoi) {
+    if (triggeredPoi.id !== lastTriggeredPoiId && !isPoiPlayed(triggeredPoi.id)) {
+      console.log(`>>> ENTERED GEOFENCE for ${triggeredPoi.name}`);
+      lastTriggeredPoiId = triggeredPoi.id;
+      markPoiAsPlayed(triggeredPoi.id);
+      broadcast({
+        type: 'POI_TRIGGER',
+        poi: {
+          id: triggeredPoi.id,
+          name: triggeredPoi.name,
+          audioUrl: `http://localhost:${PORT}/audio/${triggeredPoi.audio['en']}`
+        }
+      });
     }
-  });
-}
   } else {
     if (lastTriggeredPoiId !== null) {
       console.log(`<<< EXITED GEOFENCE`);
       lastTriggeredPoiId = null; 
     }
   }
-}
+} // <-- The function correctly ends here
 
 // Haversine formula
 function calculateDistance(coords1: Coordinates, coords2: Coordinates): number {
@@ -107,8 +111,24 @@ setInterval(checkGeofences, 5000);
 app.use(cors());
 app.use(express.json());
 app.use('/audio', express.static(path.join(__dirname, '..', 'audio')));
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', clients: wss.clients.size, lastLocation });
+});
+
+// --- API Endpoints for Tour Management ---
+app.post('/api/tour/start', (req, res) => {
+  startTour('tour1'); 
+  res.json(getTourState());
+});
+
+app.post('/api/tour/end', (req, res) => {
+  endTour();
+  res.json(getTourState());
+});
+
+app.get('/api/tour/state', (req, res) => {
+  res.json(getTourState());
 });
 
 // --- Start the server ---
