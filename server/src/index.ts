@@ -5,7 +5,7 @@ import path from 'path';
 import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import fs from 'fs';
-import { getCurrentLocation } from './gpsService';
+import { getCurrentPoi, advanceToNextPoi, resetSimulation } from './gpsService';
 import { startTour, endTour, markPoiAsPlayed, isPoiPlayed, getTourState } from './tourService';
 
 // --- Type Definitions ---
@@ -22,15 +22,25 @@ interface Poi {
   image: string; // Now just the filename, e.g., "poi-1.jpg"
 }
 
+interface Ad {
+  id: string;
+  name: string;
+  description: { [key in Language]: string };
+  image: string;
+  audio: { [key in Language]: string };
+}
+
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-// --- Load POI Data ---
+// --- Load POI and Ad Data ---
 const pois: Poi[] = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'pois.json'), 'utf-8'));
-let lastLocation: Coordinates | null = null;
+const ads: Ad[] = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ads.json'), 'utf-8'));
+let tourTimer: NodeJS.Timeout | null = null;
+let adTimer: NodeJS.Timeout | null = null;
 
 wss.on('connection', (ws) => {
   console.log('✅ Client connected to WebSocket');
@@ -47,25 +57,20 @@ function broadcast(message: object) {
   });
 }
 
-// --- Geofence Logic (Simplified for Jump Simulation) ---
-function checkGeofences() {
-  const { isTourActive } = getTourState();
-  if (!isTourActive) return;
+/**
+ * Finds a POI by its ID and sends the trigger message to the client.
+ * @param poiId The ID of the POI to trigger.
+ */
+function triggerPoiById(poiId: string) {
+    const poi = pois.find(p => p.id === poiId);
+    
+    // Do nothing if the POI doesn't exist or has already been played in this session
+    if (!poi || isPoiPlayed(poi.id)) return;
 
-  const currentLocation = getCurrentLocation();
-  console.log(`\nChecking location: Lat ${currentLocation.lat}, Lon ${currentLocation.lon}`);
-  lastLocation = currentLocation;
-  
-  for (const poi of pois) {
-    const distance = calculateDistance(currentLocation, poi.coordinates);
-    console.log(`- Distance to ${poi.name}: ${distance.toFixed(0)} meters`);
+    console.log(`>>> TRIGGERING POI for ${poi.name}`);
+    markPoiAsPlayed(poi.id);
 
-    // If we are inside a POI's radius AND it has not been played yet on this tour...
-    if (distance <= poi.radius && !isPoiPlayed(poi.id)) {
-      console.log(`>>> TRIGGERED GEOFENCE for ${poi.name}`);
-      markPoiAsPlayed(poi.id); // Mark it as played for this tour session
-
-      broadcast({
+    broadcast({
         type: 'POI_TRIGGER',
         poi: {
           id: poi.id,
@@ -78,57 +83,94 @@ function checkGeofences() {
             es: `http://localhost:${PORT}/audio/${poi.audio['es']}`
           }
         }
-      });
-      
-      // Since we found and triggered a POI, we can stop checking for this interval.
-      return; 
+    });
+}
+
+/**
+ * Selects a random ad and sends it to the client.
+ */
+function triggerRandomAd() {
+  if (ads.length === 0) return;
+  const ad = ads[Math.floor(Math.random() * ads.length)];
+  console.log(`>>> TRIGGERING AD for ${ad.name}`);
+  
+  // We re-use the 'POI_TRIGGER' message type on the client for simplicity.
+  // A more robust app might have a dedicated 'AD_TRIGGER' type.
+  broadcast({
+    type: 'POI_TRIGGER',
+    poi: {
+      id: ad.id,
+      name: ad.name,
+      description: ad.description,
+      image: `http://localhost:${PORT}/images/${ad.image}`,
+      audio: {
+        en: `http://localhost:${PORT}/audio/${ad.audio['en']}`,
+        es: `http://localhost:${PORT}/audio/${ad.audio['es']}`
+      }
     }
-  }
+  });
 }
 
-// Haversine formula for distance calculation
-function calculateDistance(coords1: Coordinates, coords2: Coordinates): number {
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = coords1.lat * Math.PI/180;
-    const φ2 = coords2.lat * Math.PI/180;
-    const Δφ = (coords2.lat-coords1.lat) * Math.PI/180;
-    const Δλ = (coords2.lon-coords1.lon) * Math.PI/180;
-
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-}
-
-// --- Start the GPS check loop ---
-setInterval(checkGeofences, 5000); // Check every 5 seconds
 
 // --- Express Setup ---
 app.use(cors());
 app.use(express.json());
 
 // --- Static Asset Serving ---
-// Serve audio files from the /audio directory
 app.use('/audio', express.static(path.join(__dirname, '..', 'audio')));
-// Serve image files from the /public/images directory
 app.use('/images', express.static(path.join(__dirname, '..', 'public', 'images')));
 
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', clients: wss.clients.size, lastLocation });
+  res.json({ status: 'ok', clients: wss.clients.size });
 });
 
 // --- API Endpoints for Tour Management ---
 app.post('/api/tour/start', (req, res) => {
-  startTour('tour1'); 
-  // Immediately run a check after starting so the first POI triggers instantly
-  checkGeofences(); 
+  console.log('--- Tour Start Request Received ---');
+  startTour('tour1');
+  resetSimulation();
+
+  // Clear any old timers to prevent duplicates
+  if (tourTimer) clearInterval(tourTimer);
+  if (adTimer) clearTimeout(adTimer);
+
+  // Trigger the first POI immediately
+  const firstPoi = getCurrentPoi();
+  if (firstPoi) {
+    triggerPoiById(firstPoi.id);
+  }
+
+  // Set a new timer to advance and trigger subsequent POIs every 2 minutes
+  tourTimer = setInterval(() => {
+    advanceToNextPoi();
+    const nextPoi = getCurrentPoi();
+    if (nextPoi) {
+      triggerPoiById(nextPoi.id);
+    }
+    
+    // Schedule an ad to play 1 minute from now (halfway through the pause)
+    adTimer = setTimeout(triggerRandomAd, 60000); // 60000ms = 1 minute
+  }, 120000); // 120000ms = 2 minutes
+
+  // Schedule the very first ad to play after 1 minute
+  adTimer = setTimeout(triggerRandomAd, 60000);
+
   res.json(getTourState());
 });
 
 app.post('/api/tour/end', (req, res) => {
+  console.log('--- Tour End Request Received ---');
   endTour();
+  // Stop and clear all timers when the tour ends
+  if (tourTimer) {
+    clearInterval(tourTimer);
+    tourTimer = null;
+  }
+  if (adTimer) {
+    clearTimeout(adTimer);
+    adTimer = null;
+  }
   res.json(getTourState());
 });
 

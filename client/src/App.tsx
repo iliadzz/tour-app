@@ -35,15 +35,18 @@ function App() {
 
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        if (message.type === 'POI_TRIGGER' && message.poi) {
-          const newPoi: Poi = message.poi;
+        // We can accept both POI and Ad triggers here since they share a structure
+        if ((message.type === 'POI_TRIGGER' || message.type === 'AD_TRIGGER') && message.poi) {
+          const newContent: Poi = message.poi;
           
-          // If we are busy replaying a previous POI, queue the new one.
           if (isReplaying) {
-            setQueuedPoi(newPoi);
+            setQueuedPoi(newContent);
           } else {
-            setCurrentPoi(newPoi);
-            setPoiHistory(prev => [...prev, newPoi]);
+            setCurrentPoi(newContent);
+            // Only add actual POIs to the replay history, not ads
+            if (message.type === 'POI_TRIGGER') {
+              setPoiHistory(prev => [...prev, newContent]);
+            }
           }
         }
       };
@@ -57,29 +60,38 @@ function App() {
         ws.close();
       }
     };
-  }, [isReplaying]); // Re-run effect if isReplaying changes
+  }, [isReplaying]);
 
   const handleReplayLast = () => {
     if (poiHistory.length > 0) {
       const lastPoi = poiHistory[poiHistory.length - 1];
       setIsReplaying(true);
-      setCurrentPoi(lastPoi);
+
+      // ** THE FIX IS HERE **
+      // 1. Set current POI to null to force the AudioPlayer to unmount.
+      setCurrentPoi(null);
+
+      // 2. Use a short timeout to set it back in the next render cycle.
+      // This guarantees that React sees it as a new update and remounts the player.
+      setTimeout(() => {
+        setCurrentPoi(lastPoi);
+      }, 50);
     }
   };
 
   const handleAudioEnded = () => {
-    // If a POI came in while we were replaying, play it now.
     if (isReplaying) {
       setIsReplaying(false);
       if (queuedPoi) {
         setCurrentPoi(queuedPoi);
-        setPoiHistory(prev => [...prev, queuedPoi]);
+        if (!queuedPoi.id.startsWith('ad-')) {
+          setPoiHistory(prev => [...prev, queuedPoi]);
+        }
         setQueuedPoi(null);
       } else {
         setCurrentPoi(null);
       }
     } else {
-      // Otherwise, just clear the current POI
       setCurrentPoi(null);
     }
   };

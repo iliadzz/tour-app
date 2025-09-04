@@ -1,0 +1,28 @@
+[
+  {
+    "id": "ad-1",
+    "name": "Visit Pollo Campero",
+    "description": {
+      "en": "Enjoy the best fried chicken in Guatemala!",
+      "es": "¡Disfruta el mejor pollo frito de Guatemala!"
+    },
+    "image": "ad-1.jpg",
+    "audio": {
+      "en": "ad-1-en.mp3",
+      "es": "ad-1-es.mp3"
+    }
+  },
+  {
+    "id": "ad-2",
+    "name": "Inca Kola",
+    "description": {
+      "en": "The golden kola, the taste of Peru.",
+      "es": "La kola dorada, el sabor del Perú."
+    },
+    "image": "ad-2.jpg",
+    "audio": {
+      "en": "ad-2-en.mp3",
+      "es": "ad-2-es.mp3"
+    }
+  }
+]
